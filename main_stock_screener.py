@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Project: Zack's #1 Rank
+"""Project: My Stock Screener
 Software Developer: Noam Siegel <noamsi@post.bgu.ac.il>
 """
 
@@ -20,40 +20,36 @@ from styleframe import StyleFrame, Styler, utils
 from win32com.client import Dispatch
 
 # Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
-
 root = Tk()
 canvas1 = tk.Canvas(root, width=300, height=300)
 
 config = configparser.ConfigParser()
 config.read('config.ini')
 timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
-processed_fnames = ['updated_dataset.xlsx',
-                    os.path.join('history', 'rank1', 'updated_dataset_{}.xlsx'.format(timestamp))]
-scraped_fname = 'rank_1.xls'
-header_cols = ['Index', 'Symbol', 'Company Name', 'Industry', 'Price', 'Date Added']
-numerical_cols = ['P/E (F1)', 'Dividend Yield(%)', 'Price Movers: 1 Day(%)', 'Price Movers: 1 Week(%)',
-                  'Price Movers: 4 Week(%)', 'Biggest Est. Chg. Current Year(%)',
-                  'Biggest Est. Chg. Next Year(%)', 'Biggest Surprise Last Qtr(%)', 'Market Cap (mil)',
-                  'Projected Earnings Growth (1 Yr)(%)',
-                  'Projected Earnings Growth (3-5 Yrs)(%)',
-                  'Price / Sales']
-rank_ascend = ['Value Score', 'Growth Score', 'Momentum Score',
-               'P/E (F1)', 'PEG', 'Price / Sales']
-rank_descend = ['Dividend Yield(%)', 'Price Movers: 1 Day(%)', 'Price Movers: 1 Week(%)',
-                'Price Movers: 4 Week(%)', 'Biggest Est. Chg. Current Year(%)',
-                'Biggest Est. Chg. Next Year(%)', 'Biggest Surprise Last Qtr(%)',
-                'Market Cap (mil)', 'Projected Earnings Growth (1 Yr)(%)',
-                'Projected Earnings Growth (3-5 Yrs)(%)',
-                'VGM Score']
-drop_cols = ['Unnamed']
-data_columns = ['Dividend Yield(%)', 'Price Movers: 1 Day(%)', 'Price Movers: 1 Week(%)',
-                'Price Movers: 4 Week(%)', 'Biggest Est. Chg. Current Year(%)',
-                'Biggest Est. Chg. Next Year(%)', 'Biggest Surprise Last Qtr(%)',
-                'Market Cap (mil)', 'Projected Earnings Growth (1 Yr)(%)',
-                'Projected Earnings Growth (3-5 Yrs)(%)',
-                'Value Score', 'Growth Score', 'Momentum Score',
-                'P/E (F1)', 'PEG', 'Price / Sales']
+processed_fnames = ['stock_screener.xlsx',
+                    os.path.join('history', 'stock_screener', 'stock_screener_{}.xlsx'.format(timestamp))]
+# scraped_fname = 'rank_1.xls'
+header_cols = ['Index', 'Ticker', 'Company Name']
+numerical_cols = []
+date_cols = []
+rank_ascend = ['Zacks Rank', 'Momentum Score',
+               'Growth Score', 'Value Score', 'Zacks Industry Rank',
+               'Current Avg Broker Rec']
+rank_descend = ['Market Cap (mil)', 'Avg Volume', '% Price Change (1 Week)',
+                '% Price Change (4 Weeks)', '% Price Change (12 Weeks)',
+                '% Price Change (YTD)', 'Current ROE (TTM)',
+                'Current ROA (TTM)']
+drop_cols = []
+data_columns = ['Zacks Rank', 'Momentum Score',
+                'Growth Score', 'Value Score', 'Zacks Industry Rank',
+                'Market Cap (mil)', 'Avg Volume', '% Price Change (1 Week)',
+                '% Price Change (4 Weeks)', '% Price Change (12 Weeks)',
+                '% Price Change (YTD)', 'Current Avg Broker Rec', 'Current ROE (TTM)',
+                'Current ROA (TTM)']
 score_columns = ['score to {}'.format(col) for col in data_columns]
+calculated_columns = ['Total score']
+
+
 pair_columns = list(zip(iter(data_columns), iter(score_columns)))
 
 
@@ -63,7 +59,6 @@ def flatten(lst):
 
 odd_pair_columns = flatten(pair_columns[1::2])
 even_pair_columns = flatten(pair_columns[0::2])
-calculated_columns = ['Total score']
 
 
 def execute(download=False):
@@ -76,11 +71,11 @@ def execute(download=False):
             sys.exit(-1)
     else:
         data = filedialog.askopenfilename(initialdir="/", title="Select file",
-                                          filetypes=(("excel files", "*.xls"), ("all files", "*.*")))
+                                          filetypes=(("csv files", "*.csv"), ("all files", "*.*")))
 
     try:
         print("Loading Dataframe")
-        df = pd.read_csv(data, delimiter='\t')
+        df = pd.read_csv(data, delimiter=',')
         print("Processing Dataframe")
         # process dataframe
         df = process_dataframe(df)
@@ -92,7 +87,7 @@ def execute(download=False):
     try:
         # save dataframe to styled excel workbook
         save(df)
-    except:
+    except Exception as e:
         messagebox.showinfo(title="Scraper and Scorer",
                             message='An error has occurred while saving the Excel. Exiting.')
         sys.exit(-1)
@@ -134,8 +129,8 @@ def process_dataframe(df):
     df.drop(df.filter(regex="Unname"), axis=1, inplace=True)
 
     # parse dates
-    # for col in date_cols:
-    #     df[col] = pd.to_datetime(df[col], format='%b %d,%Y')
+    for col in date_cols:
+        df[col] = pd.to_datetime(df[col], format='%b %d,%Y')
 
     # parse numbers
     for col in numerical_cols:
@@ -165,9 +160,8 @@ def save(df):
     for processed_fname in processed_fnames:
         excel_writer = StyleFrame.ExcelWriter(processed_fname)
         font = utils.fonts.calibri
+        # font = 'Courier New'
         sf = StyleFrame(df)
-        # sf.apply_column_style(cols_to_style=header_cols, styler_obj=Styler(bg_color=utils.colors.white),
-        #                       style_header=True)
         sf.apply_column_style(cols_to_style=(header_cols + calculated_columns),
                               styler_obj=Styler(bg_color=utils.colors.white, wrap_text=False, font=font,
                                                 font_size=12),
@@ -180,12 +174,14 @@ def save(df):
                               styler_obj=Styler(bg_color='#d6ffba', wrap_text=False, font=font,
                                                 font_size=12),
                               style_header=True)
+
         sf.to_excel(
             excel_writer=excel_writer,
             best_fit=list(df.columns),
-            columns_and_rows_to_freeze='C2',
+            # best_fit=header_cols[:-1],
+            columns_and_rows_to_freeze='D2',
             row_to_add_filters=0,
-            index=False  # Index Column Added Seperately
+            index=False #Index Column Added Seperately
         )
         try:
             excel_writer.save()
@@ -211,6 +207,8 @@ def save(df):
         wb.Save()
 
         wb.Close()
+
+    # print("Excel Saved")
 
 
 if __name__ == '__main__':
