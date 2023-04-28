@@ -11,7 +11,7 @@ import sys
 import tkinter as tk
 from datetime import datetime
 from io import StringIO
-from tkinter import messagebox, Tk, filedialog
+from tkinter import Tk, filedialog, messagebox
 
 import pandas as pd
 import pyfiglet
@@ -62,20 +62,31 @@ even_pair_columns = flatten(pair_columns[0::2])
 def execute(download=False):
     if download:
         try:
-            data = scrape()
+            data_io = scrape()
+            if data_io.getvalue() == 'Unauthorized access.':
+                raise RuntimeError("Error: Unauthorized to access data.")
         except:
             messagebox.showinfo(title="Scraper and Scorer",
                                 message='An error has occurred while trying to download data.\nExiting.')
             sys.exit(-1)
-    else:
-        data = filedialog.askopenfilename(initialdir="/", title="Select file",
-                                          filetypes=(("csv files", "*.csv"), ("all files", "*.*")))
+        try:
+            print("Reading data.")
+            df = pd.read_csv(data_io, sep='\t')
+        except:
+            messagebox.showinfo(title="Scraper and Scorer",
+                                message='An error has occurred while trying to read data.\nExiting.')
+            sys.exit(-1)
+
+    else:  # select and load csv
+        print("Choose a *.csv file.")
+        file_path: str = filedialog.askopenfilename(initialdir="/", title="Select file",
+                                                    filetypes=(("csv files", "*.csv"), ("all files", "*.*")))
+
+        print("Loading Dataframe")
+        df = pd.read_csv(file_path)
 
     try:
-        print("Loading Dataframe")
-        df = pd.read_csv(data, delimiter=',')
         print("Processing Dataframe")
-        # process dataframe
         df = process_dataframe(df)
     except:
         messagebox.showinfo(title="Scraper and Scorer",
@@ -95,8 +106,9 @@ def execute(download=False):
     sys.exit(0)
 
 
-def scrape():
-    header = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:32.0) Gecko/20100101 Firefox/32.0', }
+def scrape() -> StringIO:
+    header = {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:32.0) Gecko/20100101 Firefox/32.0', }
     urls = {"HOME": "https://www.zacks.com",
             "RANK1": "https://www.zacks.com/portfolios/rank/z2_1rank_tab.php?reference_id=all&sort_menu=show_date_added&tab_name=Full%20%231%20List&_=1610808269164",
             "RANK1EXCEL": "https://www.zacks.com/portfolios/rank/rank_excel.php?rank=1&reference_id=all",
@@ -115,8 +127,8 @@ def scrape():
         r = s.get(urls["RANK1EXCEL"])
         bytes_data = r.content
         string_data = str(r.content, 'utf-8')
-        data = StringIO(string_data)
-    return data
+        data_io = StringIO(string_data)
+    return data_io
 
 
 def process_dataframe(df):
@@ -137,23 +149,26 @@ def process_dataframe(df):
 
     # rank ascending
     for col in rank_ascend:
-        df['score to {}'.format(col)] = df[col].rank(ascending=True, method='min') - 1
+        df['score to {}'.format(col)] = df[col].rank(
+            ascending=True, method='min') - 1
 
     # rank descending
     for col in rank_descend:
-        df['score to {}'.format(col)] = df[col].rank(ascending=False, method='min') - 1
+        df['score to {}'.format(col)] = df[col].rank(
+            ascending=False, method='min') - 1
 
     # add total column
     df['Total score'] = df[score_columns].sum(axis=1)
 
     # reorder columns
-    df = df[header_cols + list(sum(list(zip(data_columns, score_columns)), ())) + calculated_columns]
+    df = df[header_cols +
+            list(sum(list(zip(data_columns, score_columns)), ())) + calculated_columns]
 
     return df
 
 
 def save(df):
-    print("Saving Excel")
+    print("Saving Excel. (Please wait, this may take a couple of minutes.)")
     df.index = df.index + 1
     for processed_fname in processed_fnames:
         excel_writer = StyleFrame.ExcelWriter(processed_fname)
@@ -172,20 +187,20 @@ def save(df):
                               styler_obj=Styler(bg_color='#d6ffba', wrap_text=False, font=font,
                                                 font_size=12),
                               style_header=True)
-
-        sf.to_excel(
-            excel_writer=excel_writer,
-            best_fit=list(df.columns),
-            # best_fit=header_cols[:-1],
-            columns_and_rows_to_freeze='D2',
-            row_to_add_filters=0,
-            index=False #Index Column Added Seperately
-        )
         try:
+            sf.to_excel(
+                excel_writer=excel_writer,
+                best_fit=list(df.columns),
+                # best_fit=header_cols[:-1],
+                columns_and_rows_to_freeze='D2',
+                row_to_add_filters=0,
+                index=False  # Index Column Added Seperately
+            )
             excel_writer.save()
             print("Excel \"{}\" Saved.".format(processed_fname))
         except PermissionError as PE:
-            print("Could not save file. Please make sure the file: \"{}\" is closed.".format(PE.filename))
+            print("Could not save file. Please make sure the file: \"{}\" is closed.".format(
+                PE.filename))
             quit(-1)
 
         print("AutoFit Column Width for {}".format(processed_fname))
@@ -195,16 +210,20 @@ def save(df):
         # Activate second sheet
         # excel.Worksheets(2).Activate()
 
+        # TODO: limit character length to 25
         # Autofit column in active sheet
         excel.ActiveSheet.Columns.AutoFit()
 
+        print("Saving Autofit")
         # Save changes in a new file
         # wb.SaveAs("D:\\output_fit.xlsx")
-
         # Or simply save changes in a current file
+        # TODO: insert path
         wb.Save()
 
+        print("Closing ExcelWriter.")
         wb.Close()
+        print("AutoFit completed.")
 
     # print("Excel Saved")
 
@@ -214,6 +233,7 @@ if __name__ == '__main__':
     button1 = tk.Button(root, text='Download and Score', command=lambda: execute(download=True), bg='#42b6f5',
                         fg='white')
     button1.pack(side=tk.TOP)
-    button2 = tk.Button(root, text='Score Only', command=lambda: execute(download=False), bg='#42b6f5', fg='white')
+    button2 = tk.Button(root, text='Score Only', command=lambda: execute(
+        download=False), bg='#42b6f5', fg='white')
     button2.pack(side=tk.BOTTOM)
     root.mainloop()
