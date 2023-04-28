@@ -28,6 +28,9 @@ canvas1 = tk.Canvas(root, width=300, height=300)
 config = configparser.ConfigParser()
 config.read('config.ini')
 timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
+history_base_dir = os.path.join('history', 'stock_screener')
+if not os.path.exists(history_base_dir):
+    os.makedirs(history_base_dir, exist_ok=True)
 processed_fnames = ['stock_screener.xlsx',
                     os.path.join('history', 'stock_screener', 'stock_screener_{}.xlsx'.format(timestamp))]
 # TODO: add 'Last Close'
@@ -215,7 +218,7 @@ def save(df):
         sf.apply_headers_style(cols_to_style=['Combination results', 'Combination rankings'],
                                styler_obj=Styler(bg_color='#ffc000', wrap_text=False, font=font,
                                                  font_size=12))
-        sf.apply_headers_style(cols_to_style=['Difference', 'Potential rankings'],
+        sf.apply_headers_style(cols_to_style=['Difference', 'Potential ranking'],
                                styler_obj=Styler(bg_color='#00ff69', wrap_text=False, font=font,
                                                  font_size=12))
 
