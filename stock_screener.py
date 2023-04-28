@@ -28,7 +28,7 @@ config.read('config.ini')
 timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
 processed_fnames = ['stock_screener.xlsx',
                     os.path.join('history', 'stock_screener', 'stock_screener_{}.xlsx'.format(timestamp))]
-# scraped_fname = 'rank_1.xls'
+# TODO: add 'Last Close'
 header_cols = ['Index', 'Ticker', 'Company Name']
 numerical_cols = []
 date_cols = []
@@ -37,15 +37,13 @@ rank_ascend = ['Zacks Rank', 'Momentum Score',
                'Current Avg Broker Rec']
 rank_descend = ['Market Cap (mil)', 'Avg Volume', '% Price Change (1 Week)',
                 '% Price Change (4 Weeks)', '% Price Change (12 Weeks)',
-                '% Price Change (YTD)', 'Current ROE (TTM)',
-                'Current ROA (TTM)']
+                '% Price Change (YTD)']
 drop_cols = []
 data_columns = ['Zacks Rank', 'Momentum Score',
                 'Growth Score', 'Value Score', 'Zacks Industry Rank',
                 'Market Cap (mil)', 'Avg Volume', '% Price Change (1 Week)',
                 '% Price Change (4 Weeks)', '% Price Change (12 Weeks)',
-                '% Price Change (YTD)', 'Current Avg Broker Rec', 'Current ROE (TTM)',
-                'Current ROA (TTM)']
+                '% Price Change (YTD)', 'Current Avg Broker Rec']
 score_columns = ['score to {}'.format(col) for col in data_columns]
 calculated_columns = ['Total score']
 
