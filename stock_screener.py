@@ -17,6 +17,8 @@ import pandas as pd
 import pyfiglet
 import requests
 from styleframe import StyleFrame, Styler, utils
+
+# TODO: FUTURE: replace this with xlwings
 from win32com.client import Dispatch
 
 # Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
@@ -29,23 +31,30 @@ timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
 processed_fnames = ['stock_screener.xlsx',
                     os.path.join('history', 'stock_screener', 'stock_screener_{}.xlsx'.format(timestamp))]
 # TODO: add 'Last Close'
-header_cols = ['Index', 'Ticker', 'Company Name']
+header_cols = ['Index', 'Ticker', 'Company Name', 'Last Close']
 numerical_cols = []
 date_cols = []
-rank_ascend = ['Zacks Rank', 'Momentum Score',
+rank_ascend = ['Zacks Rank', 'Momentum Score', "VGM Score",
                'Growth Score', 'Value Score', 'Zacks Industry Rank',
                'Current Avg Broker Rec']
 rank_descend = ['Market Cap (mil)', 'Avg Volume', '% Price Change (1 Week)',
                 '% Price Change (4 Weeks)', '% Price Change (12 Weeks)',
                 '% Price Change (YTD)']
 drop_cols = []
-data_columns = ['Zacks Rank', 'Momentum Score',
+
+# Defines the column orders
+data_columns = ['Zacks Rank', 'Momentum Score', "VGM Score",
                 'Growth Score', 'Value Score', 'Zacks Industry Rank',
                 'Market Cap (mil)', 'Avg Volume', '% Price Change (1 Week)',
                 '% Price Change (4 Weeks)', '% Price Change (12 Weeks)',
                 '% Price Change (YTD)', 'Current Avg Broker Rec']
+results_data_columns = ['Market Cap (mil)', 'Avg Volume', '% Price Change (1 Week)',
+                        '% Price Change (4 Weeks)', '% Price Change (12 Weeks)',
+                        '% Price Change (YTD)']
+
 score_columns = ['score to {}'.format(col) for col in data_columns]
-calculated_columns = ['Total score']
+calculated_columns = ['Total score', 'USA rankings', 'Combination results', 'Combination rankings',
+                      'Difference', 'Potential ranking']
 
 
 pair_columns = list(zip(iter(data_columns), iter(score_columns)))
@@ -159,6 +168,18 @@ def process_dataframe(df):
 
     # add total column
     df['Total score'] = df[score_columns].sum(axis=1)
+    df['USA rankings'] = df['Total score'].rank(
+        ascending=True, method='min') - 1
+
+    # add results
+    df['Combination results'] = df[results_data_columns].sum(axis=1)
+    df['Combination rankings'] = df['Combination results'].rank(
+        ascending=True, method='min') - 1
+
+    # add potential
+    df['Difference'] = df['Combination rankings'] - df['USA rankings']
+    df['Potential ranking'] = df['Difference'].rank(
+        ascending=False, method='min') - 1
 
     # reorder columns
     df = df[header_cols +
@@ -168,9 +189,10 @@ def process_dataframe(df):
 
 
 def save(df):
-    print("Saving Excel. (Please wait, this may take a couple of minutes.)")
     df.index = df.index + 1
     for processed_fname in processed_fnames:
+        print(
+            f"Styling Excel {processed_fname}. (Please wait, this may take a couple of minutes.)")
         excel_writer = StyleFrame.ExcelWriter(processed_fname)
         font = utils.fonts.calibri
         # font = 'Courier New'
@@ -187,12 +209,23 @@ def save(df):
                               styler_obj=Styler(bg_color='#d6ffba', wrap_text=False, font=font,
                                                 font_size=12),
                               style_header=True)
+        sf.apply_headers_style(cols_to_style=['Total score', 'USA rankings'],
+                               styler_obj=Styler(bg_color='#ffc1f5', wrap_text=False, font=font,
+                                                 font_size=12))
+        sf.apply_headers_style(cols_to_style=['Combination results', 'Combination rankings'],
+                               styler_obj=Styler(bg_color='#ffc000', wrap_text=False, font=font,
+                                                 font_size=12))
+        sf.apply_headers_style(cols_to_style=['Difference', 'Potential rankings'],
+                               styler_obj=Styler(bg_color='#00ff69', wrap_text=False, font=font,
+                                                 font_size=12))
+
+        print(f"Saving excel {processed_fname}")
         try:
             sf.to_excel(
                 excel_writer=excel_writer,
                 best_fit=list(df.columns),
                 # best_fit=header_cols[:-1],
-                columns_and_rows_to_freeze='D2',
+                columns_and_rows_to_freeze='E2',
                 row_to_add_filters=0,
                 index=False  # Index Column Added Seperately
             )
@@ -219,7 +252,8 @@ def save(df):
         # wb.SaveAs("D:\\output_fit.xlsx")
         # Or simply save changes in a current file
         # TODO: insert path
-        wb.Save()
+        # wb.Save()
+        wb.SaveAs(processed_fname)
 
         print("Closing ExcelWriter.")
         wb.Close()
@@ -230,6 +264,7 @@ def save(df):
 
 if __name__ == '__main__':
     print(pyfiglet.figlet_format("Hello!!!"))
+    print("Please select a menu option.")
     button1 = tk.Button(root, text='Download and Score', command=lambda: execute(download=True), bg='#42b6f5',
                         fg='white')
     button1.pack(side=tk.TOP)
