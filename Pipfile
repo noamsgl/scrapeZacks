@@ -13,3 +13,4 @@ pandas = "*"
 [dev-packages]
 pytest = "*"
 mypy = "*"
+autopep8 = "*"
