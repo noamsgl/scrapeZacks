@@ -239,18 +239,20 @@ def save(df):
                 PE.filename))
             quit(-1)
 
-        print("AutoFit Column Width for {}".format(processed_fname))
+        print("Adjust Column Width for {}".format(processed_fname))
         excel = Dispatch('Excel.Application')
         wb = excel.Workbooks.Open(os.path.join(os.getcwd(), processed_fname))
 
         # Activate second sheet
         # excel.Worksheets(2).Activate()
 
-        # TODO: limit character length to 25
         # Autofit column in active sheet
-        excel.ActiveSheet.Columns.AutoFit()
-
-        print("Saving Autofit")
+        # excel.ActiveSheet.Columns.AutoFit()
+        
+        # Set column width to 25
+        excel.ActiveSheet.Range("A:ZZ").ColumnWidth = 25
+        
+        print("Saving again.")
         # Save changes in a new file
         # wb.SaveAs("D:\\output_fit.xlsx")
         # Or simply save changes in a current file
@@ -260,7 +262,6 @@ def save(df):
 
         print("Closing ExcelWriter.")
         wb.Close()
-        print("AutoFit completed.")
 
     # print("Excel Saved")
 
