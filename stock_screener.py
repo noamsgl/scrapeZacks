@@ -4,7 +4,7 @@
 """Project: My Stock Screener
 Software Developer: Noam Siegel <noamsi@post.bgu.ac.il>
 """
-
+import traceback
 import configparser
 import os
 import sys
@@ -77,16 +77,18 @@ def execute(download=False):
             data_io = scrape()
             if data_io.getvalue() == 'Unauthorized access.':
                 raise RuntimeError("Error: Unauthorized to access data.")
-        except:
+        except Exception as e:
             messagebox.showinfo(title="Scraper and Scorer",
                                 message='An error has occurred while trying to download data.\nExiting.')
+            traceback.print_exc()
             sys.exit(-1)
         try:
             print("Reading data.")
             df = pd.read_csv(data_io, sep='\t')
-        except:
+        except Exception as e:
             messagebox.showinfo(title="Scraper and Scorer",
                                 message='An error has occurred while trying to read data.\nExiting.')
+            traceback.print_exc()
             sys.exit(-1)
 
     else:  # select and load csv
@@ -100,9 +102,10 @@ def execute(download=False):
     try:
         print("Processing Dataframe")
         df = process_dataframe(df)
-    except:
+    except Exception as e:
         messagebox.showinfo(title="Scraper and Scorer",
                             message='An error has occurred while processing the data. Exiting.')
+        traceback.print_exc()
         sys.exit(-1)
 
     try:
@@ -237,6 +240,7 @@ def save(df):
         except PermissionError as PE:
             print("Could not save file. Please make sure the file: \"{}\" is closed.".format(
                 PE.filename))
+            print(PE)
             quit(-1)
 
         # print("Adjust Column Width for {}".format(processed_fname))
