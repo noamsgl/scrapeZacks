@@ -56,7 +56,7 @@ results_data_columns = ['Market Cap (mil)', 'Avg Volume', '% Price Change (1 Wee
                         '% Price Change (YTD)']
 
 score_columns = ['score to {}'.format(col) for col in data_columns]
-calculated_columns = ['Total score', 'USA rankings', 'Combination results', 'Combination rankings',
+calculated_columns = ['Total score', 'USA rankings', 'score to Results', 'Results rankings',
                       'Difference', 'Potential ranking']
 
 
@@ -215,7 +215,7 @@ def save(df):
         sf.apply_headers_style(cols_to_style=['Total score', 'USA rankings'],
                                styler_obj=Styler(bg_color='#ffc1f5', wrap_text=False, font=font,
                                                  font_size=12))
-        sf.apply_headers_style(cols_to_style=['Combination results', 'Combination rankings'],
+        sf.apply_headers_style(cols_to_style=['score to Results', 'Results rankings'],
                                styler_obj=Styler(bg_color='#ffc000', wrap_text=False, font=font,
                                                  font_size=12))
         sf.apply_headers_style(cols_to_style=['Difference', 'Potential ranking'],
@@ -239,29 +239,29 @@ def save(df):
                 PE.filename))
             quit(-1)
 
-        print("Adjust Column Width for {}".format(processed_fname))
-        excel = Dispatch('Excel.Application')
-        wb = excel.Workbooks.Open(os.path.join(os.getcwd(), processed_fname))
+        # print("Adjust Column Width for {}".format(processed_fname))
+        # excel = Dispatch('Excel.Application')
+        # wb = excel.Workbooks.Open(os.path.join(os.getcwd(), processed_fname))
 
         # Activate second sheet
         # excel.Worksheets(2).Activate()
 
         # Autofit column in active sheet
         # excel.ActiveSheet.Columns.AutoFit()
-        
+
         # Set column width to 25
-        excel.ActiveSheet.Range("A:ZZ").ColumnWidth = 25
-        
-        print("Saving again.")
+        # excel.ActiveSheet.Range("A:ZZ").ColumnWidth = 25
+
+        # print("Saving again.")
         # Save changes in a new file
         # wb.SaveAs("D:\\output_fit.xlsx")
         # Or simply save changes in a current file
         # TODO: insert path
         # wb.Save()
-        wb.SaveAs(processed_fname)
+        # wb.SaveAs(processed_fname)
 
-        print("Closing ExcelWriter.")
-        wb.Close()
+        # print("Closing ExcelWriter.")
+        # wb.Close()
 
     # print("Excel Saved")
 
