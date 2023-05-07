@@ -78,7 +78,7 @@ def execute(download=False):
             data_io = scrape()
             if data_io.getvalue() == 'Unauthorized access.':
                 raise RuntimeError("Error: Unauthorized to access data.")
-        except Exception as e:
+        except:
             messagebox.showinfo(title="Scraper and Scorer",
                                 message='An error has occurred while trying to download data.\nExiting.')
             traceback.print_exc()
@@ -103,7 +103,7 @@ def execute(download=False):
     try:
         print("Processing Dataframe")
         df = process_dataframe(df)
-    except Exception as e:
+    except:
         messagebox.showinfo(title="Scraper and Scorer",
                             message='An error has occurred while processing the data. Exiting.')
         traceback.print_exc()
