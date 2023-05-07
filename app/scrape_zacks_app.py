@@ -86,7 +86,6 @@ class MainApplication(tk.Frame):
         from selenium.webdriver.common.action_chains import ActionChains
         from selenium.webdriver.common.by import By
         from webdriver_manager.chrome import ChromeDriverManager
-
         options = Options()
         options.add_experimental_option('prefs', {
             'download.default_directory': '/path/to/download/directory',
@@ -95,116 +94,98 @@ class MainApplication(tk.Frame):
             'safebrowsing.enabled': True
         })
         _logger.info("Installing chrome driver")
-        global driver
-        driver = webdriver.Chrome(options=options, service=ChromeService(
-            ChromeDriverManager().install()))
+        self.label.config(text="Running WebDriver")
+        with webdriver.Chrome(options=options, service=ChromeService(
+                ChromeDriverManager().install())) as driver:
+            current_dimension = driver.execute_script(
+                "return [window.innerHeight, window.innerWidth];")
+            _logger.info("Set window size.")
+            height = current_dimension[0]
+            width = current_dimension[1]
+            _logger.info("Current height: {}".format(height))
+            _logger.info("Current width: {}".format(width))
+            new_dimension = {'width': 1150, 'height': 1000}
+            driver.set_window_size(
+                new_dimension['width'], new_dimension['height'])
+            _logger.info("Getting homepage.")
+            driver.get(
+                "https://www.zacks.com/screening/stock-screener?icid=screening-screening-nav_tracking-zcom-main_menu_wrapper-stock_screener")
 
-        _logger.info("Getting stock-screener homepage.")
-        driver.get(
-            "https://www.zacks.com/screening/stock-screener?icid=screening-screening-nav_tracking-zcom-main_menu_wrapper-stock_screener")
-
-        current_dimension = driver.execute_script(
-            "return [window.innerHeight, window.innerWidth];")
-        height = current_dimension[0]
-        width = current_dimension[1]
-        _logger.info("Current height: {}".format(height))
-        _logger.info("Current width: {}".format(width))
-        # new_dimension = {'width': 1600, 'height': 600}
-        # driver.set_window_size(new_dimension['width'], new_dimension['height'])
-
-        _logger.info("Logging in.")
-        self.label.config(text="Logging in.")
-        login_popup = driver.find_element(
-            By.XPATH, '//*[@id="mob_log_me_in"]/a')
-        login_link = driver.find_element(By.XPATH, '//*[@id="log_me_in"]/a')
-        if login_popup.is_displayed():
-            login_popup.click()
-        elif login_link.is_displayed():
+            # TODO: continue here
+            _logger.info("Logging in.")
+            login_popup = driver.find_element(
+                By.XPATH, '//*[@id="mob_log_me_in"]/a')
+            login_link = driver.find_element(
+                By.XPATH, '//*[@id="log_me_in"]/a')
             login_link.click()
-        else:
-            raise RuntimeError("No button was displayed")
+        #     login_popup.click()
+            username_input = driver.find_element(By.ID, 'username')
+            password_input = driver.find_element(By.ID, 'password')
+            username_input.send_keys(self.config['APP']['USER'])
+            password_input.send_keys(self.config['APP']['PASSWORD'])
 
-        username_input = driver.find_element(By.ID, 'username')
-        password_input = driver.find_element(By.ID, 'password')
-        username_input.send_keys(self.config['APP']['USER'])
-        password_input.send_keys(self.config['APP']['PASSWORD'])
+            # submit the form
+            login_button = driver.find_element(
+                By.CSS_SELECTOR, 'input[type="submit"]')
+            login_button.click()
 
-        # submit the form
-        login_button = driver.find_element(
-            By.CSS_SELECTOR, 'input[type="submit"]')
-        login_button.click()
+            # TODO: raise exception if login fails
+            if "account locked" in driver.find_element(By.XPATH, '/html/body').text.lower():
+                raise RuntimeError("Account Locked.")
 
-        # TODO: raise exception if login fails
-        if "account locked" in driver.find_element(By.XPATH, '/html/body').text.lower():
-            raise RuntimeError("Account Locked.")
+            _logger.info("Switching to My-Screen tab.")
+            # switch to frame
+            iframe = driver.find_element(
+                By.XPATH, '/html/body/div[2]/div[3]/div/div/section/div/iframe')
+            driver.switch_to.frame(iframe)
 
-        _logger.info("Switching to My-Screen tab.")
-        # switch to frame
-        iframe = driver.find_element(
-            By.XPATH, '/html/body/div[2]/div[3]/div/div/section/div/iframe')
-        driver.switch_to.frame(iframe)
+            # get my screen
+            my_screen_button = driver.find_element(
+                By.XPATH, '//*[@id="my-screen-tab"]')
+            my_screen_button.click()
 
-        # get my screen
-        my_screen_button = driver.find_element(
-            By.XPATH, '//*[@id="my-screen-tab"]')
-        my_screen_button.click()
+            _logger.info("Running AVI MODEL USA STOCK.")
+            # switch to frame
+            # iframe = driver.find_element(By.XPATH, '/html/body/div[2]/div[3]/div/div/section/div/iframe')
+            # driver.switch_to.frame(iframe)
 
-        # TODO: continue here
-        _logger.info("Running AVI MODEL USA STOCK.")
-        # switch to frame
-        # iframe = driver.find_element(By.XPATH, '/html/body/div[2]/div[3]/div/div/section/div/iframe')
-        # driver.switch_to.frame(iframe)
+            run_button = driver.find_element(
+                By.XPATH, '//*[@id="btn_run_99931"]')
+            run_button.click()
+            # create action chain object
+            # action = ActionChains(driver)
+            # perform the operation
+            # action.move_to_element(run_button).click().perform()
+            # run_button.click()
 
-        run_button = driver.find_element(By.XPATH, '//*[@id="btn_run_99931"]')
-        run_button.click()
-        # create action chain object
-        # action = ActionChains(driver)
-        # perform the operation
-        # action.move_to_element(run_button).click().perform()
-        # run_button.click()
+            _logger.info("Getting CSV.")
+            csv_button = driver.find_element(
+                By.XPATH, '//*[@id="screener_table_wrapper"]/div[1]/a[1]')
+            csv_button.click()
 
-        _logger.info("Getting CSV.")
-        csv_button = driver.find_element(
-            By.XPATH, '//*[@id="screener_table_wrapper"]/div[1]/a[1]')
-        csv_button.click()
+            self.label.config(text="Downloading")
 
-        # wait for the file to finish downloading and get its path
-        while not any(filename.endswith('.csv') for filename in os.listdir('/path/to/download/directory')):
-            print("Waiting for file to download")
-            time.sleep(1)
-        filepath = os.path.join('/path/to/download/directory',
-                                os.listdir('/path/to/download/directory')[0])
-        driver.quit()
-        # TODO: connect to processing script.
-        # Process file with Pandas
-        # data = pd.read_csv(file_path)
-        # result = data.groupby(['column_name']).sum()
-
-        # # Save result to disk
-        # result.to_csv('result.csv')
-        self.label.config(text="Downloaded!")
-        quit(0)
-
-    def handle_exception(self, error_code: str, e: Exception):
-        messagebox.showinfo(title="Scraper and Scorer",
-                            message=f"An error has occurred while processing the data. Exiting.\nError Code: {error_code}")
-        traceback.print_exc()
-        sys.exit(-1)
+            # wait for the file to finish downloading and get its path
+            while not any(filename.endswith('.csv') for filename in os.listdir('/path/to/download/directory')):
+                print("Waiting for file to download")
+                time.sleep(1)
+            filepath = os.path.join('/path/to/download/directory',
+                                    os.listdir('/path/to/download/directory')[0])
 
     def select_and_process(self):
         file_path: str = filedialog.askopenfilename(initialdir="/", title="Select file",
                                                     filetypes=(("csv files", "*.csv"), ("all files", "*.*")))
+        self.label.config(text=f"Reading \"{file_path}\"")
+        _logger.info("Reading CSV")
         df = pd.read_csv(file_path)
 
-        try:
-            print("Processing Dataframe")
-            df = self.process_dataframe(df)
-        except Exception as e:
-            self.handle_exception('@err-processing', e)
-        try:
-            self.save(df)
-        except Exception as e:
-            self.handle_exception('@err-saving', e)
+        self.label.config(text=f"Processing \"{file_path}\"")
+        _logger.info("Processing Dataframe")
+        df = self.process_dataframe(df)
+
+        self.label.config(text=f"Processing \"{file_path}\"")
+        _logger.info(f"Saving to \"{self.output_filename}\"")
+        self.save(df)
 
         messagebox.showinfo(title="Scraper and Scorer",
                             message=f'Scoring Completed!\nFile saved to {self.output_filename}')
@@ -259,8 +240,7 @@ class MainApplication(tk.Frame):
 
     def save(self, df: pd.DataFrame):
         df.index = df.index + 1
-        print(
-            f"Styling Excel {self.output_filename}. (Please wait, this may take a couple of minutes.)")
+        _logger.info("Styling Excel")
         excel_writer = styleframe.ExcelWriter(self.output_filename)
         font = styleframe.utils.fonts.calibri
         # font = 'Courier New'
@@ -287,7 +267,7 @@ class MainApplication(tk.Frame):
                                styler_obj=Styler(bg_color='#00ff69', wrap_text=False, font=font,
                                                  font_size=12))
 
-        print(f"Saving excel {self.output_filename}")
+        _logger.info(f"Saving excel {self.output_filename}")
         try:
             sf.to_excel(
                 excel_writer=excel_writer,
@@ -298,16 +278,22 @@ class MainApplication(tk.Frame):
                 index=False  # Index Column Added Seperately
             )
             excel_writer.save()
-            print("Excel \"{}\" Saved.".format(self.output_filename))
+            _logger.info("Excel \"{}\" Saved.".format(self.output_filename))
         except PermissionError as PE:
-            print("Could not save file. Please make sure the file: \"{}\" is closed.".format(
-                PE.filename))
-            print(PE)
-            quit(1)
+            _logger.info(
+                f"Could not save file. Please make sure the file: \"{PE.filename}\" is closed")
+            _logger.info(PE)
+            raise
+
+
+def show_error(exc, val, tb):
+    messagebox.showerror(
+        "Error!", message=f"An unexpected error occurred!\n\n{str(val)}")
 
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.report_callback_exception = show_error
     MainApplication(root, width=300).pack(side="top", fill="both", expand=True)
     root.protocol("WM_DELETE_WINDOW", MainApplication.on_closing)
     root.mainloop()
