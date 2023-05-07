@@ -14,10 +14,7 @@ from styleframe import Styler, StyleFrame
 class App:
     def __init__(self, master):
         self.master = master
-        master.title("Data Downloader")
-
-        self.label = tk.Label(master, text="Enter URL:")
-        self.label.pack()
+        master.title("USA Model")
 
         self.entry = tk.Entry(master)
         self.entry.pack()
