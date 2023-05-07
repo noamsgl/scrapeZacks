@@ -4,13 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-requests = "*"
-pyfiglet = "*"
-styleframe = "*"
+requests = "~=2.30.0"
+pyfiglet = "==0.8.post1"
+styleframe = "~=4.1"
 pywin32 = "*"
-pandas = "*"
+pandas = "~=1.5.3"
+selenium = "~=4.9.0"
+webdriver-manager = "~=3.8.6"
 
 [dev-packages]
 pytest = "*"
 mypy = "*"
 autopep8 = "*"
+pandas-stubs = "*"
