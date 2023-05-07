@@ -16,22 +16,20 @@ class App:
         self.master = master
         master.title("USA Model")
 
-        self.entry = tk.Entry(master)
-        self.entry.pack()
+        self.download_button = tk.Button(
+            master, text="Download New", command=self.download)
+        self.download_button.pack()
+
 
         self.select_and_process_button =\
-            tk.Button(master, text="Select and Process",
+            tk.Button(master, text="Select Existing",
                       command=self.select_and_process)
         self.select_and_process_button.pack()
 
-        self.download_button = tk.Button(
-            master, text="Download", command=self.download)
-        self.download_button.pack()
-        # TODO: make history base dir
         config = configparser.ConfigParser()
         config.read('config.ini')
         self.timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
-        self.output_filename = 'stock_screener.xlsx'
+        self.output_filename = f'USA-Model-{self.timestamp}.xlsx'
         self.header_cols = ['Index', 'Ticker', 'Company Name', 'Last Close']
         self.numerical_cols = []
         self.date_cols = []
@@ -78,6 +76,7 @@ class App:
         # result.to_csv('result.csv')
 
         self.label.config(text="Done!")
+        quit(0)
 
 
     def handle_exception(self, error_code: str, e: Exception):
@@ -103,7 +102,8 @@ class App:
             self.handle_exception('@err-saving', e)
 
         messagebox.showinfo(title="Scraper and Scorer",
-                            message='Scoring Completed.')
+                            message=f'Scoring Completed!\nFile saved to {self.output_filename}')
+        quit(0)
 
     def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         # add index column
@@ -198,7 +198,7 @@ class App:
             print("Could not save file. Please make sure the file: \"{}\" is closed.".format(
                 PE.filename))
             print(PE)
-            quit(-1)
+            quit(1)
 
 if __name__ == "__main__":
     root = tk.Tk()
