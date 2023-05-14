@@ -13,11 +13,14 @@ import styleframe
 from styleframe import StyleFrame, Styler
 
 _logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO,
+                    # format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+                    format='[%(asctime)s] %(levelname)s - %(message)s',
+                    datefmt='%H:%M:%S')
 
 
 def highlight(element):
-    """Highlights (blinks) a Selenium Webdriver element"""
+    """Highlights (blinks) a Selenium Webdriver element."""
     driver = element._parent
 
     def apply_style(s):
@@ -244,9 +247,6 @@ class MainApplication(tk.Frame):
         df = df[self.header_cols +
                 list(sum(list(zip(self.data_columns, self.score_columns)), ())) + self.calculated_columns]
 
-        # save
-
-        _logger.info(f"Saving to \"{self.output_filename}\"")
         self.save(df)
         messagebox.showinfo(title="Scraper and Scorer",
                             message=f'Scoring Completed!\nFile saved to {self.output_filename}')
@@ -281,7 +281,7 @@ class MainApplication(tk.Frame):
                                styler_obj=Styler(bg_color='#00ff69', wrap_text=False, font=font,
                                                  font_size=12))
 
-        _logger.info(f"Saving excel {self.output_filename}")
+        _logger.info(f"Saving Excel to: {self.output_filename}")
         try:
             sf.to_excel(
                 excel_writer=excel_writer,
