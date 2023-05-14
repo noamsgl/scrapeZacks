@@ -3,4 +3,6 @@
 
 scratch/
 
+config.ini
 *.xlsx
+*.csv
