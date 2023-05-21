@@ -12,7 +12,7 @@ import pandas as pd
 import styleframe
 from styleframe import StyleFrame, Styler
 
-_logger = logging.getLogger(__name__)
+_logger = logging.getLogger("USA Model")
 logging.basicConfig(level=logging.INFO,
                     # format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
                     format='[%(asctime)s] %(levelname)s - %(message)s',
@@ -113,6 +113,7 @@ class MainApplication(tk.Frame):
             pass
 
         options = Options()
+        options.headless = self.config.getboolean('APP', 'HEADLESS')
         options.add_experimental_option('prefs', {
             'download.default_directory': os.getcwd(),
             'download.prompt_for_download': False,
