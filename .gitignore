@@ -6,3 +6,5 @@ scratch/
 config.ini
 *.xlsx
 *.csv
+
+build/
