@@ -244,6 +244,7 @@ class MainApplication(tk.Frame):
             # all_files = os.listdir(os.getcwd())
             csv_files = glob.glob(f"{os.getcwd()}/*.csv")
             latest_file = max(csv_files, key=os.path.getctime)
+            _logger.info(f"Got file {latest_file}.")
             # filepath = os.path.join(os.getcwd(),
             #                         os.listdir('/path/to/download/directory')[0])
             return Path(latest_file)
