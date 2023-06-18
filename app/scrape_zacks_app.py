@@ -231,19 +231,19 @@ class MainApplication(tk.Frame):
 
             # driver.find_element(
             #     By.XPATH, '//*[@id="screener_table_wrapper"]/div[1]/a[1]')
+            pre_existing_csvs = glob.glob(f"{os.getcwd()}/*.csv")
             csv_button.click()
 
             self.label.config(text="Downloading")
 
             # wait for the file to finish downloading and get its path
-            while not any(
-                filename.endswith(".csv") for filename in os.listdir(os.getcwd())
-            ):
+            while True:
+                current_csvs = glob.glob(f"{os.getcwd()}/*.csv")
+                if len(current_csvs) > len(pre_existing_csvs):
+                    break
                 print("Waiting for file to download..")
                 time.sleep(1)
-            # all_files = os.listdir(os.getcwd())
-            csv_files = glob.glob(f"{os.getcwd()}/*.csv")
-            latest_file = max(csv_files, key=os.path.getctime)
+            latest_file = max(current_csvs, key=os.path.getctime)
             _logger.info(f"Got file {latest_file}.")
             # filepath = os.path.join(os.getcwd(),
             #                         os.listdir('/path/to/download/directory')[0])
