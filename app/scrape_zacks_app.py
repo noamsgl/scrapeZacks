@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox
 
 import pandas as pd
 import styleframe
+from _version import __version__
 from styleframe import StyleFrame, Styler
 
 _logger = logging.getLogger("USA Model")
@@ -40,7 +41,7 @@ class MainApplication(tk.Frame):
     def __init__(self, master, *args, **kwargs):
         tk.Frame.__init__(self, master, *args, **kwargs)
         self.master = master
-        master.title("USA Model")
+        master.title(f"USA Model - {__version__}")
 
         self.label = tk.Label(master, text="Welcome!")
         self.label.pack()
@@ -169,7 +170,7 @@ class MainApplication(tk.Frame):
         _logger.info("Installing chrome driver")
         self.label.config(text="Running WebDriver")
         with RequestsChromeWebDriver(
-            options=options, service=ChromeService(ChromeDriverManager().install())
+            options=options, service=ChromeService(ChromeDriverManager(version="114.0.5735.16").install())
         ) as driver:  # noqa: E501
             # current_dimension = driver.execute_script(
             #     "return [window.innerHeight, window.innerWidth];")
