@@ -4,14 +4,18 @@ import logging
 import os
 import time
 import tkinter as tk
+from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
+from typing import List
 
 import pandas as pd
+import pandera as pa
 import styleframe
-from _version import __version__
 from styleframe import StyleFrame, Styler
+
+from mypackage import __version__, utils
 
 _logger = logging.getLogger("USA Model")
 logging.basicConfig(
@@ -22,47 +26,43 @@ logging.basicConfig(
 )
 
 
-def highlight(element):
-    """Highlights (blinks) a Selenium Webdriver element."""
-    driver = element._parent
+class AbstractModelPipeline(ABC):
+    @abstractmethod
+    def download(self):
+        pass
 
-    def apply_style(s):
-        driver.execute_script(
-            "arguments[0].setAttribute('style', arguments[1]);", element, s
+    @abstractmethod
+    def read_csv_and_process(self, filepath: Path) -> pd.DataFrame:
+        pass
+
+    def download_and_process(self) -> None:
+        filepath = self.download()
+        self.read_csv_and_process(filepath)
+
+    def select_and_process(self):
+        file_path = Path(
+            filedialog.askopenfilename(
+                initialdir="/",
+                title="Select file",
+                filetypes=(("csv files", "*.csv"), ("all files", "*.*")),
+            )
         )
+        assert (
+            file_path.exists()
+        ), f"Error: expected {file_path} to exist but it does not."
+        # self.label.config(text=f"Reading \"{file_path}\"")
+        # self.label.config(text=f"Processing \"{file_path}\"")
+        self.read_csv_and_process(file_path)
 
-    original_style = element.get_attribute("style")
-    apply_style("background: yellow; border: 2px solid red;")
-    time.sleep(0.3)
-    apply_style(original_style)
 
-
-class MainApplication(tk.Frame):
-    def __init__(self, master, *args, **kwargs):
-        tk.Frame.__init__(self, master, *args, **kwargs)
-        self.master = master
-        master.title(f"USA Model - {__version__}")
-
-        self.label = tk.Label(master, text="Welcome!")
-        self.label.pack()
-
-        self.download_button = tk.Button(
-            master, text="Fetch New Data", command=self.download_and_process
-        )
-        self.download_button.pack()
-
-        self.select_and_process_button = tk.Button(
-            master, text="Use Existing Data", command=self.select_and_process
-        )
-        self.select_and_process_button.pack()
-
-        self.config = configparser.ConfigParser()
-        self.config.read("config.ini")
+class USAModelPipeline(AbstractModelPipeline):
+    def __init__(self, config) -> None:
+        self.config = config
         self.timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
         self.output_filename = f"USA-Model-{self.timestamp}.xlsx"
         self.header_cols = ["Index", "Ticker", "Company Name", "Last Close"]
-        self.numerical_cols = []
-        self.date_cols = []
+        self.numerical_cols: List[str] = []
+        self.date_cols: List[str] = []
         self.rank_ascend = [
             "Zacks Rank",
             "Momentum Score",
@@ -80,7 +80,7 @@ class MainApplication(tk.Frame):
             "% Price Change (12 Weeks)",
             "% Price Change (YTD)",
         ]
-        self.drop_cols = []
+        self.drop_cols: List[str] = []
 
         # Defines the column orders
         self.data_columns = [
@@ -125,20 +125,8 @@ class MainApplication(tk.Frame):
 
         self.pair_columns = list(zip(iter(self.data_columns), iter(self.score_columns)))
 
-        def flatten(lst):
-            return [item for sublist in lst for item in sublist]
-
-        self.odd_pair_columns = flatten(self.pair_columns[1::2])
-        self.even_pair_columns = flatten(self.pair_columns[0::2])
-
-    @staticmethod
-    def on_closing():
-        if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            root.destroy()
-
-    def download_and_process(self) -> None:
-        filepath = self.download()
-        self.read_csv_and_process(filepath)
+        self.odd_pair_columns = utils.flatten(self.pair_columns[1::2])
+        self.even_pair_columns = utils.flatten(self.pair_columns[0::2])
 
     def download(self) -> Path:
         from selenium import webdriver
@@ -168,7 +156,6 @@ class MainApplication(tk.Frame):
             },
         )
         _logger.info("Installing chrome driver")
-        self.label.config(text="Running WebDriver")
         with RequestsChromeWebDriver(
             options=options, service=ChromeService(ChromeDriverManager(version="114.0.5735.16").install())
         ) as driver:  # noqa: E501
@@ -235,8 +222,6 @@ class MainApplication(tk.Frame):
             pre_existing_csvs = glob.glob(f"{os.getcwd()}/*.csv")
             csv_button.click()
 
-            self.label.config(text="Downloading")
-
             # wait for the file to finish downloading and get its path
             while True:
                 current_csvs = glob.glob(f"{os.getcwd()}/*.csv")
@@ -249,21 +234,6 @@ class MainApplication(tk.Frame):
             # filepath = os.path.join(os.getcwd(),
             #                         os.listdir('/path/to/download/directory')[0])
             return Path(latest_file)
-
-    def select_and_process(self):
-        file_path = Path(
-            filedialog.askopenfilename(
-                initialdir="/",
-                title="Select file",
-                filetypes=(("csv files", "*.csv"), ("all files", "*.*")),
-            )
-        )
-        assert (
-            file_path.exists()
-        ), f"Error: expected {file_path} to exist but it does not."
-        # self.label.config(text=f"Reading \"{file_path}\"")
-        # self.label.config(text=f"Processing \"{file_path}\"")
-        self.read_csv_and_process(file_path)
 
     def read_csv_and_process(self, filepath: Path) -> pd.DataFrame:
         _logger.info("Reading CSV")
@@ -393,6 +363,45 @@ class MainApplication(tk.Frame):
             )
             _logger.info(PE)
             raise
+
+
+# define schema (initial skeleton)
+usa_model_schema = pa.DataFrameSchema({
+    "column1": pa.Column(int, checks=pa.Check.le(10)),
+    "column2": pa.Column(float, checks=pa.Check.lt(-1.2)),
+    "column3": pa.Column(str, checks=[
+        pa.Check.str_startswith("value_"),
+        # define custom checks as functions that take a series as input and
+        # outputs a boolean or boolean Series
+        pa.Check(lambda s: s.str.split("_", expand=True).shape[1] == 2)
+    ]),
+})
+
+
+class MainApplication(tk.Frame):
+    def __init__(self, master, *args, **kwargs):
+        tk.Frame.__init__(self, master, *args, **kwargs)
+        self.master = master
+        master.title(f"USA Model - {__version__}")
+
+        self.label = tk.Label(master, text="Welcome!")
+        self.label.pack()
+
+        self.config = configparser.ConfigParser()
+        self.config.read("config.ini")
+        self.pipeline = USAModelPipeline(self.config)
+
+        self.download_button = tk.Button(master, text="Fetch New Data", command=self.pipeline.download_and_process)
+        self.download_button.pack()
+
+        self.select_and_process_button = tk.Button(
+            master, text="Use Existing Data", command=self.pipeline.select_and_process)
+        self.select_and_process_button.pack()
+
+    @staticmethod
+    def on_closing():
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            root.destroy()
 
 
 def show_error(exc, val, tb) -> None:
