@@ -1,18 +1,20 @@
-import configparser
 import glob
 import logging
 import os
 import time
 import tkinter as tk
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import List
 
 import pandas as pd
-import pandera as pa
+# import pandera as pa
+import rootutils
 import styleframe
+from jsonargparse import CLI, ArgumentParser
 from styleframe import StyleFrame, Styler
 
 from mypackage import __version__, utils
@@ -26,9 +28,20 @@ logging.basicConfig(
 )
 
 
+@dataclass
+class PipelineConfig:
+    user: str
+    password: str
+    headless: bool = True
+
+
 class AbstractModelPipeline(ABC):
     @abstractmethod
     def download(self):
+        pass
+
+    @abstractmethod
+    def style_as_excel_and_save(self, df: pd.DataFrame) -> None:
         pass
 
     @abstractmethod
@@ -36,10 +49,16 @@ class AbstractModelPipeline(ABC):
         pass
 
     def download_and_process(self) -> None:
+        """The main function of "Fetch New Data".
+        """
         filepath = self.download()
-        self.read_csv_and_process(filepath)
+        processed = self.read_csv_and_process(filepath)
+        self.style_as_excel_and_save(processed)
+        quit(0)
 
     def select_and_process(self):
+        """The main function of "Use Existing Data".
+        """
         file_path = Path(
             filedialog.askopenfilename(
                 initialdir="/",
@@ -50,15 +69,17 @@ class AbstractModelPipeline(ABC):
         assert (
             file_path.exists()
         ), f"Error: expected {file_path} to exist but it does not."
-        # self.label.config(text=f"Reading \"{file_path}\"")
-        # self.label.config(text=f"Processing \"{file_path}\"")
-        self.read_csv_and_process(file_path)
+        processed = self.read_csv_and_process(file_path)
+        self.style_as_excel_and_save(processed)
+        quit(0)
 
 
 class USAModelPipeline(AbstractModelPipeline):
-    def __init__(self, config) -> None:
+    def __init__(self, config: PipelineConfig) -> None:
         self.config = config
         self.timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
+        # FUTURE: replace with this
+        # self.output_filename = filedialog.askopenfile(filetypes=filetypes, initialdir="#Specify the file path")
         self.output_filename = f"USA-Model-{self.timestamp}.xlsx"
         self.header_cols = ["Index", "Ticker", "Company Name", "Last Close"]
         self.numerical_cols: List[str] = []
@@ -129,6 +150,14 @@ class USAModelPipeline(AbstractModelPipeline):
         self.even_pair_columns = utils.flatten(self.pair_columns[0::2])
 
     def download(self) -> Path:
+        """Download data.
+
+        Raises:
+            RuntimeError: if downloading fails
+
+        Returns:
+            Path: path to downloaded csv file
+        """
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
         from selenium.webdriver.chrome.service import Service as ChromeService
@@ -144,8 +173,7 @@ class USAModelPipeline(AbstractModelPipeline):
             pass
 
         options = Options()
-        assert isinstance(self.config, configparser.ConfigParser)
-        options.headless = self.config.getboolean("APP", "HEADLESS")
+        options.headless = self.config.headless
         options.add_experimental_option(
             "prefs",
             {
@@ -174,13 +202,13 @@ class USAModelPipeline(AbstractModelPipeline):
                 "/html/body/div[2]/div[3]/div/div/div/div/div[2]/table/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/input",  # noqa: E501
             )  # noqa: E501
             assert username_input.is_displayed()
-            username_input.send_keys(self.config["APP"]["USER"])  # type: ignore
+            username_input.send_keys(self.config.user)  # type: ignore
             password_input = driver.find_element(
                 By.XPATH,
                 "/html/body/div[2]/div[3]/div/div/div/div/div[2]/table/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr[4]/td[2]/input",  # noqa: E501
             )  # noqa: E501
             assert password_input.is_displayed()
-            password_input.send_keys(self.config["APP"]["PASSWORD"])  # type: ignore
+            password_input.send_keys(self.config.password)  # type: ignore
             login_button = driver.find_element(By.ID, "button")
             assert login_button.is_displayed()
             login_button.click()
@@ -190,6 +218,12 @@ class USAModelPipeline(AbstractModelPipeline):
                 in driver.find_element(By.XPATH, "/html/body").text.lower()
             ):
                 raise RuntimeError("Account Locked. Please try again in 30 minutes.")
+
+            if (
+                "failed"
+                in driver.find_element(By.XPATH, "/html/body").text.lower()
+            ):
+                raise RuntimeError("Sign in failed.")
 
             _logger.info("Switching to My-Screen tab.")
             driver.get("https://www.zacks.com/screening/stock-screener")
@@ -236,6 +270,14 @@ class USAModelPipeline(AbstractModelPipeline):
             return Path(latest_file)
 
     def read_csv_and_process(self, filepath: Path) -> pd.DataFrame:
+        """Read a CSV from a file path, perform main operations on it, and save it.
+
+        Args:
+            filepath (Path): a path to the CSV data.
+
+        Returns:
+            processed (pd.DataFrame): a processed dataframe
+        """
         _logger.info("Reading CSV")
         df = pd.read_csv(filepath)
         # add index column
@@ -287,15 +329,9 @@ class USAModelPipeline(AbstractModelPipeline):
             + list(sum(list(zip(self.data_columns, self.score_columns)), ()))
             + self.calculated_columns
         ]
+        return df
 
-        self.save(df)
-        messagebox.showinfo(
-            title="Scraper and Scorer",
-            message=f"Scoring Completed!\nFile saved to {self.output_filename}",
-        )
-        quit(0)
-
-    def save(self, df: pd.DataFrame) -> None:
+    def style_as_excel_and_save(self, df: pd.DataFrame) -> None:
         df.index = df.index + 1
         _logger.info("Styling Excel")
         excel_writer = styleframe.ExcelWriter(self.output_filename)
@@ -363,23 +399,26 @@ class USAModelPipeline(AbstractModelPipeline):
             )
             _logger.info(PE)
             raise
-
+        messagebox.showinfo(
+            title="Scraper and Scorer",
+            message=f"Scoring Completed!\nFile saved to {self.output_filename}",
+        )
 
 # define schema (initial skeleton)
-usa_model_schema = pa.DataFrameSchema({
-    "column1": pa.Column(int, checks=pa.Check.le(10)),
-    "column2": pa.Column(float, checks=pa.Check.lt(-1.2)),
-    "column3": pa.Column(str, checks=[
-        pa.Check.str_startswith("value_"),
-        # define custom checks as functions that take a series as input and
-        # outputs a boolean or boolean Series
-        pa.Check(lambda s: s.str.split("_", expand=True).shape[1] == 2)
-    ]),
-})
+# usa_model_schema = pa.DataFrameSchema({
+#     "column1": pa.Column(int, checks=pa.Check.le(10)),
+#     "column2": pa.Column(float, checks=pa.Check.lt(-1.2)),
+#     "column3": pa.Column(str, checks=[
+#         pa.Check.str_startswith("value_"),
+#         # define custom checks as functions that take a series as input and
+#         # outputs a boolean or boolean Series
+#         pa.Check(lambda s: s.str.split("_", expand=True).shape[1] == 2)
+#     ]),
+# })
 
 
 class MainApplication(tk.Frame):
-    def __init__(self, master, *args, **kwargs):
+    def __init__(self, master: tk.Tk, config: PipelineConfig, *args, **kwargs):
         tk.Frame.__init__(self, master, *args, **kwargs)
         self.master = master
         master.title(f"USA Model - {__version__}")
@@ -387,9 +426,7 @@ class MainApplication(tk.Frame):
         self.label = tk.Label(master, text="Welcome!")
         self.label.pack()
 
-        self.config = configparser.ConfigParser()
-        self.config.read("config.ini")
-        self.pipeline = USAModelPipeline(self.config)
+        self.pipeline = USAModelPipeline(config)
 
         self.download_button = tk.Button(master, text="Fetch New Data", command=self.pipeline.download_and_process)
         self.download_button.pack()
@@ -397,6 +434,12 @@ class MainApplication(tk.Frame):
         self.select_and_process_button = tk.Button(
             master, text="Use Existing Data", command=self.pipeline.select_and_process)
         self.select_and_process_button.pack()
+
+    @staticmethod
+    def get_config_parser():
+        parser = ArgumentParser()
+        parser.add_dataclass_arguments(PipelineConfig, "pipeline")
+        return parser
 
     @staticmethod
     def on_closing():
@@ -411,8 +454,12 @@ def show_error(exc, val, tb) -> None:
 
 
 if __name__ == "__main__":
+    root_path = rootutils.find_root(search_from=__file__, indicator='.project-root')
+    cfg: PipelineConfig = CLI(PipelineConfig,
+                              as_positional=False,
+                              default_config_files=[root_path / "config.yaml"])
     root = tk.Tk()
     root.report_callback_exception = show_error
-    MainApplication(root, width=300).pack(side="top", fill="both", expand=True)
+    MainApplication(root, cfg, width=300).pack(side="top", fill="both", expand=True)
     root.protocol("WM_DELETE_WINDOW", MainApplication.on_closing)
     root.mainloop()
