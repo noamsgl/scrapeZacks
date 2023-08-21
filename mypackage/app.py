@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import glob
 import logging
 import os
@@ -37,6 +39,10 @@ class PipelineConfig:
 
 class AbstractModelPipeline(ABC):
     @abstractmethod
+    def __init__(self, cfg: PipelineConfig) -> None:
+        pass
+
+    @abstractmethod
     def download(self):
         pass
 
@@ -75,8 +81,8 @@ class AbstractModelPipeline(ABC):
 
 
 class USAModelPipeline(AbstractModelPipeline):
-    def __init__(self, config: PipelineConfig) -> None:
-        self.config = config
+    def __init__(self, cfg: PipelineConfig) -> None:
+        self.cfg = cfg
         self.timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
         # FUTURE: replace with this
         # self.output_filename = filedialog.askopenfile(filetypes=filetypes, initialdir="#Specify the file path")
@@ -134,7 +140,6 @@ class USAModelPipeline(AbstractModelPipeline):
         ]
 
         self.score_columns = ["score to {}".format(col) for col in self.data_columns]
-        self.score_columns = ["score to {}".format(col) for col in self.data_columns]
         self.calculated_columns = [
             "Total score",
             "USA rankings",
@@ -173,7 +178,7 @@ class USAModelPipeline(AbstractModelPipeline):
             pass
 
         options = Options()
-        options.headless = self.config.headless
+        options.headless = self.cfg.headless
         options.add_experimental_option(
             "prefs",
             {
@@ -202,13 +207,13 @@ class USAModelPipeline(AbstractModelPipeline):
                 "/html/body/div[2]/div[3]/div/div/div/div/div[2]/table/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/input",  # noqa: E501
             )  # noqa: E501
             assert username_input.is_displayed()
-            username_input.send_keys(self.config.user)  # type: ignore
+            username_input.send_keys(self.cfg.user)  # type: ignore
             password_input = driver.find_element(
                 By.XPATH,
                 "/html/body/div[2]/div[3]/div/div/div/div/div[2]/table/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr[4]/td[2]/input",  # noqa: E501
             )  # noqa: E501
             assert password_input.is_displayed()
-            password_input.send_keys(self.config.password)  # type: ignore
+            password_input.send_keys(self.cfg.password)  # type: ignore
             login_button = driver.find_element(By.ID, "button")
             assert login_button.is_displayed()
             login_button.click()
@@ -404,6 +409,286 @@ class USAModelPipeline(AbstractModelPipeline):
             message=f"Scoring Completed!\nFile saved to {self.output_filename}",
         )
 
+
+class ETFModelPipeline(AbstractModelPipeline):
+    def __init__(self, cfg: PipelineConfig) -> None:
+        self.cfg = cfg
+        self.timestamp = datetime.now().strftime("%d-%m-%Y %H-%M")
+        # FUTURE: replace with this
+        # self.output_filename = filedialog.askopenfile(filetypes=filetypes, initialdir="#Specify the file path")
+        self.output_filename = f"ETF-Model-{self.timestamp}.xlsx"
+        self.header_cols = ["Index", "Company Name", "Ticker"]
+        self.numerical_cols: List[str] = []
+        self.date_cols: List[str] = []
+        self.rank_ascend = [
+            "ETF Rank",
+            "Expense Ratio"
+        ]
+        self.rank_descend = [
+            "Forward Yield",
+            "Performance 1D (%)",
+            "Performance 1M (%)",
+            "Performance 1Y (%)",
+            "Performance YTD (%)",
+            "Performance 6M (%)",
+            "Performance 3M (%)",
+        ]
+        self.drop_cols: List[str] = []
+
+        # Defines the column orders
+        self.data_columns = [
+            "ETF Rank",
+            "Forward Yield",
+            "Expense Ratio",
+            "Performance 1D (%)",
+            "Performance 1M (%)",
+            "Performance 1Y (%)",
+            "Performance YTD (%)",
+            "Performance 6M (%)",
+            "Performance 3M (%)",
+        ]
+
+        self.score_columns = ["score to {}".format(col) for col in self.data_columns]
+        self.calculated_columns = [
+            "Total",
+        ]
+
+        self.pair_columns = list(zip(iter(self.data_columns), iter(self.score_columns)))
+
+        self.odd_pair_columns = utils.flatten(self.pair_columns[1::2])
+        self.even_pair_columns = utils.flatten(self.pair_columns[0::2])
+
+    def download(self) -> Path:
+        """Download data.
+
+        Raises:
+            RuntimeError: if downloading fails
+
+        Returns:
+            Path: path to downloaded csv file
+        """
+        raise NotImplementedError
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service as ChromeService
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.wait import WebDriverWait
+        from seleniumrequests.request import RequestsSessionMixin
+        from webdriver_manager.chrome import ChromeDriverManager
+
+        class RequestsChromeWebDriver(RequestsSessionMixin, webdriver.Chrome):
+            """A Chrome webdriver with requests functionality."""
+
+            pass
+
+        options = Options()
+        options.headless = self.cfg.headless
+        options.add_experimental_option(
+            "prefs",
+            {
+                "download.default_directory": os.getcwd(),
+                "download.prompt_for_download": False,
+                "download.directory_upgrade": True,
+                "safebrowsing.enabled": True,
+            },
+        )
+        _logger.info("Installing chrome driver")
+        with RequestsChromeWebDriver(
+            options=options, service=ChromeService(ChromeDriverManager(version="114.0.5735.16").install())
+        ) as driver:  # noqa: E501
+            # current_dimension = driver.execute_script(
+            #     "return [window.innerHeight, window.innerWidth];")
+            _logger.info("Set window size.")
+            new_dimension = {"width": 1150, "height": 1000}
+            driver.set_window_size(new_dimension["width"], new_dimension["height"])
+
+            _logger.info("Getting homepage.")
+            driver.get("https://www.zacks.com/my_account/welcomeback.php")
+
+            _logger.info("Logging in.")
+            username_input = driver.find_element(
+                By.XPATH,
+                "/html/body/div[2]/div[3]/div/div/div/div/div[2]/table/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/input",  # noqa: E501
+            )  # noqa: E501
+            assert username_input.is_displayed()
+            username_input.send_keys(self.cfg.user)  # type: ignore
+            password_input = driver.find_element(
+                By.XPATH,
+                "/html/body/div[2]/div[3]/div/div/div/div/div[2]/table/tbody/tr/td/table/tbody/tr/td[2]/table/tbody/tr[4]/td[2]/input",  # noqa: E501
+            )  # noqa: E501
+            assert password_input.is_displayed()
+            password_input.send_keys(self.cfg.password)  # type: ignore
+            login_button = driver.find_element(By.ID, "button")
+            assert login_button.is_displayed()
+            login_button.click()
+
+            if (
+                "account locked"
+                in driver.find_element(By.XPATH, "/html/body").text.lower()
+            ):
+                raise RuntimeError("Account Locked. Please try again in 30 minutes.")
+
+            if (
+                "failed"
+                in driver.find_element(By.XPATH, "/html/body").text.lower()
+            ):
+                raise RuntimeError("Sign in failed.")
+
+            _logger.info("Switching to My-Screen tab.")
+            driver.get("https://www.zacks.com/screening/stock-screener")
+
+            # switch to frame
+            _logger.info("Switching to screenerContent iframe.")
+            iframe = driver.find_element(By.ID, "screenerContent")
+            driver.switch_to.frame(iframe)
+
+            _logger.info("Getting my-screen-tab")
+            # get my-screen tab
+            my_screen_button = driver.find_element(By.ID, "my-screen-tab")
+            my_screen_button.send_keys(" ")
+
+            _logger.info("Running AVI MODEL USA STOCK.")
+            run_button = WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.ID, "btn_run_99931"))
+            )
+
+            run_button.click()
+            _logger.info("Getting CSV.")
+            csv_button = WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//*[@id="screener_table_wrapper"]/div[1]/a[1]')
+                )
+            )
+
+            # driver.find_element(
+            #     By.XPATH, '//*[@id="screener_table_wrapper"]/div[1]/a[1]')
+            pre_existing_csvs = glob.glob(f"{os.getcwd()}/*.csv")
+            csv_button.click()
+
+            # wait for the file to finish downloading and get its path
+            while True:
+                current_csvs = glob.glob(f"{os.getcwd()}/*.csv")
+                if len(current_csvs) > len(pre_existing_csvs):
+                    break
+                print("Waiting for file to download..")
+                time.sleep(1)
+            latest_file = max(current_csvs, key=os.path.getctime)
+            _logger.info(f"Got file {latest_file}.")
+            # filepath = os.path.join(os.getcwd(),
+            #                         os.listdir('/path/to/download/directory')[0])
+            return Path(latest_file)
+
+    def read_csv_and_process(self, filepath: Path) -> pd.DataFrame:
+        """Read a CSV from a file path, perform main operations on it, and save it.
+
+        Args:
+            filepath (Path): a path to the CSV data.
+
+        Returns:
+            processed (pd.DataFrame): a processed dataframe
+        """
+        _logger.info("Reading CSV")
+        df = pd.read_csv(filepath)
+        # add index column
+        df["Index"] = range(1, len(df) + 1)
+
+        # get rid of unnamed index
+        df.drop(df.filter(regex="Unname"), axis=1, inplace=True)
+
+        # parse dates
+        for col in self.date_cols:
+            df[col] = pd.to_datetime(df[col], format="%b %d,%Y")
+
+        # parse numbers
+        for col in self.numerical_cols:
+            df[col] = df[col].str.rstrip("%")
+            df[col] = df[col].str.replace(r"[^0-9.\-]", "").astype(float)
+
+        # rank ascending
+        for col in self.rank_ascend:
+            df["score to {}".format(col)] = (
+                df[col].rank(ascending=True, method="min") - 1
+            )
+
+        # rank descending
+        for col in self.rank_descend:
+            df["score to {}".format(col)] = (
+                df[col].rank(ascending=False, method="min") - 1
+            )
+
+        # add total column
+        df["Total"] = df[self.score_columns].sum(axis=1)
+
+        # reorder columns
+        df = df[
+            self.header_cols
+            + list(sum(list(zip(self.data_columns, self.score_columns)), ()))
+            + self.calculated_columns
+        ]
+        return df
+
+    def style_as_excel_and_save(self, df: pd.DataFrame) -> None:
+        df.index = df.index + 1
+        _logger.info("Styling Excel")
+        excel_writer = styleframe.ExcelWriter(self.output_filename)
+        font = styleframe.utils.fonts.calibri
+        # font = 'Courier New'
+        sf = StyleFrame(df)
+        sf.apply_column_style(
+            cols_to_style=(self.header_cols + self.calculated_columns),
+            styler_obj=Styler(
+                bg_color=styleframe.utils.colors.white,
+                wrap_text=False,
+                font=font,
+                font_size=12,
+            ),
+            style_header=True,
+        )
+        sf.apply_column_style(
+            cols_to_style=self.odd_pair_columns,
+            styler_obj=Styler(
+                bg_color="#ffe28a", wrap_text=False, font=font, font_size=12
+            ),
+            style_header=True,
+        )
+        sf.apply_column_style(
+            cols_to_style=self.even_pair_columns,
+            styler_obj=Styler(
+                bg_color="#d6ffba", wrap_text=False, font=font, font_size=12
+            ),
+            style_header=True,
+        )
+        sf.apply_headers_style(
+            cols_to_style=["Total"],
+            styler_obj=Styler(
+                bg_color="#ffc1f5", wrap_text=False, font=font, font_size=12
+            ),
+        )
+        _logger.info(f"Saving Excel to: {self.output_filename}")
+        try:
+            sf.to_excel(
+                excel_writer=excel_writer,
+                best_fit=list(df.columns),
+                # best_fit=header_cols[:-1],
+                columns_and_rows_to_freeze="D2",
+                row_to_add_filters=0,
+                index=False,  # Index Column Added Seperately
+            )
+            excel_writer.save()
+            _logger.info('Excel "{}" Saved.'.format(self.output_filename))
+        except PermissionError as PE:
+            _logger.info(
+                f'Could not save file. Please make sure the file: "{PE.filename}" is closed'
+            )
+            _logger.info(PE)
+            raise
+        messagebox.showinfo(
+            title="Scraper and Scorer",
+            message=f"Scoring Completed!\nFile saved to {self.output_filename}",
+        )
+
+
 # define schema (initial skeleton)
 # usa_model_schema = pa.DataFrameSchema({
 #     "column1": pa.Column(int, checks=pa.Check.le(10)),
@@ -418,22 +703,54 @@ class USAModelPipeline(AbstractModelPipeline):
 
 
 class MainApplication(tk.Frame):
-    def __init__(self, master: tk.Tk, config: PipelineConfig, *args, **kwargs):
+    def __init__(self, master: tk.Tk, cfg: PipelineConfig, *args, **kwargs):
         tk.Frame.__init__(self, master, *args, **kwargs)
         self.master = master
-        master.title(f"USA Model - {__version__}")
+        self.cfg: PipelineConfig = cfg
+        master.title(f"Main - {__version__}")
 
-        self.label = tk.Label(master, text="Welcome!")
+        self.label = tk.Label(master, text="Welcome! Please select a model:")
         self.label.pack()
 
-        self.pipeline = USAModelPipeline(config)
+        models = ("USA", "ETF")
+        var = tk.Variable(value=models)
+        self.listbox = tk.Listbox(
+            master,
+            listvariable=var,
+            height=2,
+            selectmode=tk.SINGLE
+        )
+        self.listbox.pack(expand=True, fill=tk.Y)
 
-        self.download_button = tk.Button(master, text="Fetch New Data", command=self.pipeline.download_and_process)
-        self.download_button.pack()
+        self.download_button = tk.Button(master, text="Fetch New Data", command=self.on_fetch_new_data_press)
+        self.download_button.pack(fill=tk.Y)
 
         self.select_and_process_button = tk.Button(
-            master, text="Use Existing Data", command=self.pipeline.select_and_process)
-        self.select_and_process_button.pack()
+            master, text="Use Existing Data", command=self.on_use_existing_data_press)
+        self.select_and_process_button.pack(fill=tk.Y)
+
+    def on_fetch_new_data_press(self) -> None:
+        pipeline_class = self.on_listbox_select()
+        pipeline = pipeline_class(self.cfg)
+        pipeline.download_and_process()
+
+    def on_use_existing_data_press(self) -> None:
+        pipeline_class = self.on_listbox_select()
+        pipeline = pipeline_class(self.cfg)
+        pipeline.select_and_process()
+
+    def on_listbox_select(self) -> type[AbstractModelPipeline]:
+        selected_indices = self.listbox.curselection()
+        if selected_indices:
+            selected_item = self.listbox.get(self.listbox.curselection())
+            if selected_item == "USA":
+                return USAModelPipeline
+            elif selected_item == "ETF":
+                return ETFModelPipeline
+            else:
+                raise ValueError
+        else:
+            raise UserWarning("Select a model first.")
 
     @staticmethod
     def get_config_parser():

@@ -153,12 +153,19 @@ dmypy.json
 cython_debug/
 
 # Project-specific
+
 .vscode/
+
 
 scratch/
 
 config.ini
 *.xlsx
 *.csv
+!tests/assets/*/*.csv
+!tests/assets/*/*.xlsx
 
 build/
+
+# MS Office temporary files
+~$*
