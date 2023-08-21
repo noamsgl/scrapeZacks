@@ -25,12 +25,13 @@ repos:
 
 -   repo: local
     hooks:
-    -   id: pytest
-        name: pytest
+    -   id: pytest-check
+        name: pytest-check
+        entry: pytest
         stages: [ commit ]
         language: system
-        entry: pytest
         types: [ python ]
-        pass_filenames: False #no filenames will be passed to the hook, run once
-        args: [ -n, auto, --cov, --durations, "3"] # using forks - it's currently faster ~>20sec than n=1 (on linux)
+        pass_filenames: false #no filenames will be passed to the hook, run once
+        # args: [ -n, auto, --cov, --durations, "3"] # using forks - it's currently faster ~>20sec than n=1 (on linux)
+        always_run: true
         verbose: True
