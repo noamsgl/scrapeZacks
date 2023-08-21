@@ -35,6 +35,7 @@ class PipelineConfig:
     user: str
     password: str
     headless: bool = True
+    download_timeout_in_sec: int = 60
 
 
 class AbstractModelPipeline(ABC):
@@ -230,7 +231,7 @@ class USAModelPipeline(AbstractModelPipeline):
             ):
                 raise RuntimeError("Sign in failed.")
 
-            _logger.info("Switching to My-Screen tab.")
+            _logger.info("Switching to stock-screener tab.")
             driver.get("https://www.zacks.com/screening/stock-screener")
 
             # switch to frame
@@ -467,7 +468,6 @@ class ETFModelPipeline(AbstractModelPipeline):
         Returns:
             Path: path to downloaded csv file
         """
-        raise NotImplementedError
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
         from selenium.webdriver.chrome.service import Service as ChromeService
@@ -536,7 +536,7 @@ class ETFModelPipeline(AbstractModelPipeline):
                 raise RuntimeError("Sign in failed.")
 
             _logger.info("Switching to My-Screen tab.")
-            driver.get("https://www.zacks.com/screening/stock-screener")
+            driver.get("https://www.zacks.com/screening/etf-screener")
 
             # switch to frame
             _logger.info("Switching to screenerContent iframe.")
@@ -548,9 +548,9 @@ class ETFModelPipeline(AbstractModelPipeline):
             my_screen_button = driver.find_element(By.ID, "my-screen-tab")
             my_screen_button.send_keys(" ")
 
-            _logger.info("Running AVI MODEL USA STOCK.")
+            _logger.info("Running MODEL ZACKS ETF.")
             run_button = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.ID, "btn_run_99931"))
+                EC.presence_of_element_located((By.ID, "btn_run_99985"))
             )
 
             run_button.click()
@@ -567,10 +567,13 @@ class ETFModelPipeline(AbstractModelPipeline):
             csv_button.click()
 
             # wait for the file to finish downloading and get its path
+            start_time = time.time()
             while True:
                 current_csvs = glob.glob(f"{os.getcwd()}/*.csv")
                 if len(current_csvs) > len(pre_existing_csvs):
                     break
+                if time.time() - start_time > self.cfg.download_timeout_in_sec:
+                    raise RuntimeError("Timed Out.")
                 print("Waiting for file to download..")
                 time.sleep(1)
             latest_file = max(current_csvs, key=os.path.getctime)
