@@ -7,23 +7,8 @@
 
 ## Dev
 
-### Setting up virtual environment
 
-1. Install `pipenv` in the global environment:
-
-```
-pip install pipenv
-```
-
-2. Install the virtual environment using `pipenv`:
-```
-pipenv install --dev
-```
-3. Enter the virtual environment:
-```
-pipenv shell
-```
-4. Run the main app
-```
-python app/scrape_zacks_app.py
-```
+### Setting up with uv
+1. install uv
+2. uv pip install -e .
+3. uv run mypackage/main.py
