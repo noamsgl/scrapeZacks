@@ -18,7 +18,7 @@ import styleframe
 from jsonargparse import CLI, ArgumentParser
 from styleframe import StyleFrame, Styler
 
-from . import __version__, utils
+from mypackage import __version__, utils
 
 _logger = logging.getLogger("USA Model")
 logging.basicConfig(
