@@ -1,0 +1,19 @@
+[project]
+name = "scrapezacks"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "jsonargparse==4.23.1",
+    "numpy==1.24.4",
+    "pandas==1.5.3",
+    "rootutils>=1.0.7",
+    "styleframe==4.1",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pre-commit>=4.1.0",
+    "pytest>=8.3.5",
+]

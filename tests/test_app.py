@@ -4,8 +4,8 @@ import pandas as pd
 import pytest
 import rootutils
 
-from mypackage.app import (AbstractModelPipeline, ETFModelPipeline,
-                           PipelineConfig, USAModelPipeline)
+from mypackage.main import (AbstractModelPipeline, ETFModelPipeline,
+                            PipelineConfig, USAModelPipeline)
 
 root_path = rootutils.find_root(search_from=__file__, indicator=".project-root")
 

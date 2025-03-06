@@ -13,13 +13,12 @@ from tkinter import filedialog, messagebox
 from typing import List
 
 import pandas as pd
-# import pandera as pa
 import rootutils
 import styleframe
 from jsonargparse import CLI, ArgumentParser
 from styleframe import StyleFrame, Styler
 
-from mypackage import __version__, utils
+from . import __version__, utils
 
 _logger = logging.getLogger("USA Model")
 logging.basicConfig(
