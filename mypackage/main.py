@@ -719,7 +719,7 @@ class MainApplication(tk.Frame):
         # self.download_button.pack(fill=tk.Y)
 
         self.select_and_process_button = tk.Button(
-            master, text="Select Data", command=self.on_use_existing_data_press)
+            master, text="Use Existing Data", command=self.on_use_existing_data_press)
         self.select_and_process_button.pack(fill=tk.Y)
 
     def on_fetch_new_data_press(self) -> None:
