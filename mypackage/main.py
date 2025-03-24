@@ -101,13 +101,14 @@ class USAModelPipeline(AbstractModelPipeline):
         ]
         self.rank_descend = [
             "Market Cap (mil)",
-            "Avg Volume",
+            "Avg Volume $",
             "% Price Change (1 Week)",
             "% Price Change (4 Weeks)",
             "% Price Change (12 Weeks)",
             "% Price Change (YTD)",
         ]
         self.drop_cols: List[str] = []
+        self.archive_cols: List[str] = ["Avg Volume"]
 
         # Defines the column orders
         self.data_columns = [
@@ -118,7 +119,7 @@ class USAModelPipeline(AbstractModelPipeline):
             "Value Score",
             "Zacks Industry Rank",
             "Market Cap (mil)",
-            "Avg Volume",
+            "Avg Volume $",
             "% Price Change (1 Week)",
             "% Price Change (4 Weeks)",
             "% Price Change (12 Weeks)",
@@ -131,7 +132,7 @@ class USAModelPipeline(AbstractModelPipeline):
             f"score to {col}"
             for col in (
                 "Market Cap (mil)",
-                "Avg Volume",
+                "Avg Volume $",
                 "% Price Change (1 Week)",
                 "% Price Change (4 Weeks)",
                 "% Price Change (12 Weeks)",
@@ -291,6 +292,8 @@ class USAModelPipeline(AbstractModelPipeline):
         # get rid of unnamed index
         df.drop(df.filter(regex="Unname"), axis=1, inplace=True)
 
+        # add concepts
+        df["Avg Volume $"] = df["Last Close"] * df["Avg Volume"]
         # parse dates
         for col in self.date_cols:
             df[col] = pd.to_datetime(df[col], format="%b %d,%Y")
@@ -691,19 +694,6 @@ class ETFModelPipeline(AbstractModelPipeline):
         )
 
 
-# define schema (initial skeleton)
-# usa_model_schema = pa.DataFrameSchema({
-#     "column1": pa.Column(int, checks=pa.Check.le(10)),
-#     "column2": pa.Column(float, checks=pa.Check.lt(-1.2)),
-#     "column3": pa.Column(str, checks=[
-#         pa.Check.str_startswith("value_"),
-#         # define custom checks as functions that take a series as input and
-#         # outputs a boolean or boolean Series
-#         pa.Check(lambda s: s.str.split("_", expand=True).shape[1] == 2)
-#     ]),
-# })
-
-
 class MainApplication(tk.Frame):
     def __init__(self, master: tk.Tk, cfg: PipelineConfig, *args, **kwargs):
         tk.Frame.__init__(self, master, *args, **kwargs)
@@ -724,11 +714,12 @@ class MainApplication(tk.Frame):
         )
         self.listbox.pack(expand=True, fill=tk.Y)
 
-        self.download_button = tk.Button(master, text="Fetch New Data", command=self.on_fetch_new_data_press)
-        self.download_button.pack(fill=tk.Y)
+        # NOTE: noams | 08-03-24 | downloading data deprecated and removed from product
+        # self.download_button = tk.Button(master, text="Fetch New Data", command=self.on_fetch_new_data_press)
+        # self.download_button.pack(fill=tk.Y)
 
         self.select_and_process_button = tk.Button(
-            master, text="Use Existing Data", command=self.on_use_existing_data_press)
+            master, text="Select Data", command=self.on_use_existing_data_press)
         self.select_and_process_button.pack(fill=tk.Y)
 
     def on_fetch_new_data_press(self) -> None:
